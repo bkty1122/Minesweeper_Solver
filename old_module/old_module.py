@@ -44,9 +44,8 @@ class Minesweeper_playerboard():
         self.player_board = [['-' for _ in range(self._cols)] for _ in range(self._rows)]
     def count_string(self, object, count_string):
         object_flat_1 = [a for c in object for a in c]
-        object_flat_2 = [a for c in object_flat_1 for a in c]
         #since the gameboard is a triple list, need to flattening it twice
-        y = object_flat_2.count(count_string)
+        y = object_flat_1.count(count_string)
         return y
     def winning(self):
         if self.count_string(self.player_board,'-') == 0:
@@ -68,7 +67,7 @@ class Minesweeper_AI():
         self.guess_mine = []
         self.guess_mine_filtered = set()
         self.neighbour_general = set()
-        self.player_board = playerboard.player_board.copy()
+        self.player_board = playerboard.player_board
     def get_neighbour(self, x, y):
         neighbour = []
         for i in range(x - 1, x + 2):
@@ -76,9 +75,9 @@ class Minesweeper_AI():
                 if (i >= 0 and i < self.rows) \
                 and (j >= 0 and j < self.cols) \
                 and (i, j) != (x, y) \
-                and (i, j) not in self.known_safe:
+                and (i, j) not in self.known_safe\
+                and (i, j) not in self.known_mines:
                     neighbour.append((i,j))
-                    self.neighbour_general.add((i,j))
         return neighbour
     def guess_mine_neighbour(self,x,y):
         neighbour = self.get_neighbour(x,y)
@@ -104,6 +103,11 @@ class Minesweeper_AI():
                     self.guess_mine_filtered.add(j)
         return guess_neighbour_same
     def probability_neighbour(self,x,y):
+        for i in range(x-1, x+2):
+            for j in range(y-1, y+2):
+                if (i,j) in self.move_made:
+                    self.guess_mine_neighbour(i,j)
+                    self.guess_checking(i,j)
         count_filtered = set()
         neighbour = set()
         neighbour_already_safe = set()
@@ -129,7 +133,7 @@ class Minesweeper_AI():
                                 count_filtered.remove(i)
                 except KeyError:
                     pass
-        probability = len(self.guess_mine_filtered) / len(neighbour)
+        probability = len(self.guess_mine_filtered) / (len(neighbour)+1)
         if check_mine_include_all == True:
             probability = 0
         else:
@@ -139,57 +143,74 @@ class Minesweeper_AI():
                 probability = probability
         return probability
     def probability_not_neighbour(self,x,y):
-        for x in self.player_board:
-            for y in x:
-                if (x,y) not in self.neighbour_general:
-                    probability = (self.num_mines - len(self.known_mines))\
-                                /(self.rows * self.cols - len(self.known_safe)\
-                                - len(self.neighbour_general))
-                    return probability
+        probability = (self.num_mines - len(self.known_mines))\
+                    /(self.rows * self.cols - len(self.known_safe)\
+                    - len(self.neighbour_general))
+        return probability
     def get_all_probability(self):
         cell_probability = {}
-        for x in self.player_board:
-            for y in x:
-                if (x,y) not in self.neighbour_general:
-                    key = tuple(self.player_board[x])
-                    cell_probability[key] = self.probability_not_neighbour(x,y)
-                else:
-                    key = tuple(self.player_board[x])
+        for x in range(self.rows):
+            for y in range(self.cols):
+                if (x,y) in self.neighbour_general:
+                    key = (x,y)
                     cell_probability[key] = self.probability_neighbour(x,y)
+                else:
+                    key = (x,y)
+                    cell_probability[key] = self.probability_not_neighbour(x,y)
         return cell_probability
+    def probability_not_neighbour(self,x,y):
+        probability = (self.num_mines - len(self.known_mines))\
+                    /(self.rows * self.cols - len(self.known_safe)\
+                    - len(self.neighbour_general))
+        return probability
     def make_safe_move(self):
         cell_probability = self.get_all_probability()
+        choice_cell = tuple(cell_probability)
         for (i,j) in cell_probability:
             if cell_probability[(i,j)] == 0:
                 self.known_safe.add((i,j))
                 return (i,j)
-            elif min(cell_probability.values()) > 0 and len(self.known_safe) == 0:
-                return random.choice(min(cell_probability, key=cell_probability.get))
-        return None, None
+            else:
+                (x,y) = random.choice(choice_cell)
+                return (x,y)
     def mark_mine(self):
         cell_probability = self.get_all_probability()
         if min(cell_probability.values()) == 0 and len(self.known_safe) == 0:
             return max(cell_probability, key=cell_probability.get)
-        return None, None
+        return None
     def make_move(self):
-        (i,j) = self.make_safe_move
+        (i,j) = self.make_safe_move()
         playerboard.player_board[i][j] = gameboard.board[i][j]
-        self.known_safe.add(i,j)
-        (x,y) = self.mark_mine()
-        playerboard.player_board[x][y] = 'F'
-        self.known_mines.add(x,y)
+        self.move_made.add((i,j))
+        self.neighbour_general.update(self.get_neighbour(i,j))
+        if self.mark_mine() != None:
+            (x,y) = self.mark_mine()
+            playerboard.player_board[x][y] = 'F'
+            self.known_mines.add((x,y))
+        elif (i,j) in self.known_safe:
+            self.known_safe.remove((i,j))
         print(playerboard.player_board)
-        
-        
+        print('Get al probability: {}'.format(self.get_all_probability()))
+        print('known_safe set is: {}'.format(self.known_safe))
+        print('move made record is: {}'.format(self.move_made))
+        print('neighbours of opended cells are: {}'.format(self.neighbour_general))
+        print('Guess mine combination:{}'.format(self.guess_mine_filtered))
 
-rols = 10
-cols = 10
+rols = 5
+cols = 5
 mines = 10
 
 playerboard = Minesweeper_playerboard(rols, cols, mines)
 gameboard = Minesweeper_gameboard(rols, cols, mines)
 MinesweeperAI_bot = Minesweeper_AI(rols,cols,mines)
 
-print(playerboard.player_board)
-
-print(MinesweeperAI_bot.get_all_probability())
+count = 0
+while count < 3:
+    print(MinesweeperAI_bot.make_move())
+    count += 1
+# while playerboard.winning() == False and playerboard.lose() == False:
+#     print(MinesweeperAI_bot.make_move())
+# if playerboard.winning() == True:
+#     print('You win!')
+# elif playerboard.lose() == True:
+#     print('You lose!')
