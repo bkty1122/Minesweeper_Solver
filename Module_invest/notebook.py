@@ -4,6 +4,22 @@ import scipy as sp
 from itertools import product
 from functools import reduce
 from operator import mul
+from tools import *
+from constraint import Problem, ExactSumConstraint
+
+#測試 constraint module
+prob = Problem()
+const_exact = ExactSumConstraint(6)
+prob.addVariables(['a','b','c'], [1,2,3,0,-1,4,6,-2])
+prob.addConstraint(const_exact)
+prob.addConstraint(lambda a, b, c: a * b * c > 1)
+print('Test Problem and add Constraint set: {}'.format(prob.getSolutions()))
+# Test Problem and add Constraint set: 
+#     [{'a': 4, 'b': 1, 'c': 1}, {'a': 3, 'b': 2, 'c': 1}, 
+#      {'a': 3, 'b': 1, 'c': 2}, {'a': 2, 'b': 3, 'c': 1}, 
+#      {'a': 2, 'b': 2, 'c': 2}, {'a': 2, 'b': 1, 'c': 3}, 
+#      {'a': 1, 'b': 4, 'c': 1}, {'a': 1, 'b': 3, 'c': 2}, 
+#      {'a': 1, 'b': 2, 'c': 3}, {'a': 1, 'b': 1, 'c': 4}]
 
 #測試 object[~np.isnan(np_nan_test_2)] = 0 的效果
 np_nan_test_1 = np.full((7,7), 2)
@@ -15,7 +31,6 @@ and_test_1 = np.full((7,7), 2)
 and_test_2 = np.full((1,7), 3)
 and_test_3 = np.isnan(and_test_2)
 and_operater_test = and_test_3 & and_test_2
-print(and_operater_test.sum(dtype=int))
 
 #測試 dict properties, enumerate
 dict_trial = {(0,2):{1: 0.3, 2: 0.4}, (0,4):{1: 0.4, 2: 0.3}}
@@ -32,7 +47,7 @@ for a in product_trial:
 
 #Test reduce module and np.add
 print('testinf result of reduce: {}'\
-    reduce(np.add, enumerate(enumerate_trial)))
+    .format(reduce(np.add, enumerate(enumerate_trial))))
 #壓縮至(x,y), x = 0 + 1 + 2 + 3 = 6, y = 0 + 4 + 2 + 6 = 12
 
 mul_trial = [[1,2,3,4], [2,3,4,5]]

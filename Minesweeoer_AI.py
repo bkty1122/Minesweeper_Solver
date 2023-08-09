@@ -304,7 +304,7 @@ class Solver:
             i += 1
         return labeled, num_components
 
-    @staticmethod
+    @staticmethod #to semi seperate this function from class
     def _get_areas(state, mask):
         """ Split the masked area into regions, for which each square in that region is constrained by the same
             constraints.
