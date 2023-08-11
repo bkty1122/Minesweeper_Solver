@@ -41,6 +41,9 @@ class Minesweeper_solver():
             count_result = self.counting_step(state_trans)
             if 0 in count_result and self._stop_at_solution:
                 return count_result
+            elif 1 in count_result:
+                self.known[count_result == 1] = 1
+                return count_result
             return self.contraint_area(state_trans) # subject to modify to test result
         return np.full((self._rows,self._cols), self._total_mines / (self._rows * self._cols))
     def counting_step(self, state):
@@ -54,8 +57,16 @@ class Minesweeper_solver():
                 a = neighbors_xy(state_ck_zero[i][1], state_ck_zero[i][0], (self._rows, self._cols))
                 state_ck_zero_mask = state_ck_zero_mask & ~a #return a boolean array, state which are the neighbours of sale cells
             state_ck_zero_mask = np.isnan(self.known) & ~state_ck_zero_mask #combine with bool np.isnan and ~state_ck_zero_mask
-            result = np.where(state_ck_zero_mask == True, 0, np.nan) 
-            return result
+            result[state_ck_zero_mask == True] = 0
+        # Check if number of neighbour mines is equal to the number in the cell
+        state_ck_one = np.argwhere(state_ck > 0)
+        for (i,j) in state_ck_one:
+            i_arr = np.full((self._rows,self._cols), False)
+            i_arr[i,j] = True
+            a = neighbors_xy(i,j, (self._rows, self._cols))
+            state_ck_one_mask = (a | i_arr) & np.isnan(self.known)
+            if state_ck_one_mask.sum() == state_ck[i,j]:
+                result[state_ck_one_mask == True] = 1
         return result
         
     def contraint_area(self, state):
@@ -69,29 +80,76 @@ class Minesweeper_solver():
         # now: how can we make the problem knows the constraint? 
         return self.guess_mine_component(state, components)
     
-    def guess_mine_component(self, state, components, num_component = 1):
-        c = (components == num_component) & np.isnan(self.known) 
+    def guess_mine_component(self, state, components, num_component=1):
+        '''
+        return a bool array, stating which cells are neighbours of component 1
+        grap each cm's neighbour (except known cells), convert to a list with their coordinates, and append to a list
+        for cm with neigbours, use exactsumconstraint, variable = cm's neighbours in tuple list and [0,1], constraint = number in state
+        combine solutions, use maxconstraint to filter overlapped solutions which sum is more than other cm's number
+        after combining solutions, return the results
+        '''
         # return a bool array, stating which cells are in component 1
         cm = neighbors(components == num_component) & ~np.isnan(state) 
-        # return a bool array, stating which cells are neighbours of component 1
-        # grap each cm's neighbour (except known cells), convert to a list with their coordinates, and append to a list
-        # for cm with neigbours, use exactsumconstraint, variable = cm's neighbours in tuple list and [0,1], constraint = number in state
-        # combine solutions, use maxconstraint to filter overlapped solutions which sum is more than other cm's number
-        # after combining solutions, return the results
         coord_cm = np.where(cm == True)
-        coordinate_cm = [(x,y) for x, y in zip(coord_cm[0], coord_cm[1])] # convert to a list of tuples
-        # delete coordinate_cm[i] if it's neighbours are all known
-        n = []
+        coordinate_cm = [(x,y) for x, y in zip(coord_cm[0], coord_cm[1])] # convert to a list of tuples]
+        # delete coordinate_cm[i] if it's neighbours are all known, else append to total_neigh_coord
+        total_neigh_coord = []
         for i in range(len(coordinate_cm)):
-            if (neighbors_xy(coordinate_cm[i][0], coordinate_cm[i][1], (self._rows, self._cols)) | np.isnan(self.known)).all():
+            if (neighbors_xy(coordinate_cm[i][1], coordinate_cm[i][0], (self._rows, self._cols)) | np.isnan(self.known)).all():
                 del coordinate_cm[i]
             else:
-                cm_neigh = neighbors_xy(coordinate_cm[i][0], coordinate_cm[i][1], (self._rows, self._cols)) & np.isnan(self.known)
+                cm_neigh = neighbors_xy(coordinate_cm[i][1], coordinate_cm[i][0], (self._rows, self._cols)) & np.isnan(self.known)
                 cm_neighbour = np.where(cm_neigh == True) 
-                coord_neigh_cm = [(x,y) for x, y in zip(cm_neighbour[0], cm_neighbour[1])]
-                n.append(coord_neigh_cm)
-        # use emunurate to label list n, then generate possible mines combination using constraint module
-        return n
+                coord_neigh_cm = [(x,y) for y, x in zip(cm_neighbour[1], cm_neighbour[0])] # be careful about the order of x and y
+                total_neigh_coord.append(coord_neigh_cm)
+        # produce a cm_index mask
+        label_cm = cm.copy().astype(int) # copy cm, convert bool array to int array, otherwise we cannot assign number to cm mask
+        for i in range(len(coordinate_cm)):
+            (x, y) = coordinate_cm[i] #iterate tuple from coordinate_cm to map labes to label_cm
+            label_cm[x,y] = i + 1
+        # use label_cm and state to produce constraint, use total_neigh_coord to produce variable, append results to solutions
+        solutions = []
+        for j in range(len(total_neigh_coord)):
+            problem = Problem()
+            constraint = ExactSumConstraint(int(state[label_cm == j + 1]))
+            variable = total_neigh_coord[j]
+            problem.addVariables(variable, [0,1])
+            problem.addConstraint(constraint)
+            sol = problem.getSolutions()
+            for k1 in range(len(sol)):
+                # convert sol to a matrix, append to solutions
+                solutions_k1 = []
+                M = np.full((self._rows,self._cols), np.nan)
+                M[tuple(zip(*sol[k1].keys()))] = list(sol[k1].values())
+                solutions_k1.append(M)
+                solutions.append([j + 1, solutions_k1])
+        # now, solutions is a list of list. solutions[i][0] is the index of cm, solutions[i][1:] is the solution matrix
+        # use maxconstraint to filter overlapped solutions which sum is more than other cm's number
+        # use a while-loop to compare solution[i] and solution[i+1]
+        i = 0
+        while i < (len(solutions)-1):
+            cm_index_check = 1
+            while cm_index_check < (len(label_cm) + 1):
+                j_list = []
+                for j in range(len(solutions)):
+                    if solutions[j][0] == cm_index_check:
+                        j_list.append(j)
+                for j in j_list:
+                    if j < len(solutions):
+                        bool_true = ~np.isnan(solutions[i][1:]) & ~np.isnan(solutions[j][1:])
+                        if np.where(bool_true == True):
+                            constraint_i_j = min(int(state[label_cm == solutions[i][0]]), int(state[label_cm == solutions[j][0]]))
+                            i_array = solutions[i][1:]
+                            j_array = solutions[j][1:]
+                            if np.sum(np.array(i_array)[bool_true]) > constraint_i_j:
+                                del solutions[i]
+                            elif np.sum(np.array(j_array)[bool_true]) > constraint_i_j:
+                                del solutions[j]
+                j_list.clear()
+                cm_index_check += 1
+            i += 1
+        # now, solutions is filtered, it has removed results in which sums of overlapped cells greater than the constraint
+        return print('Total neigh coord: {}\nSolution: {}\n'.format(total_neigh_coord, solutions))
     
     def components(self, state):
         # Get the numbers next to unknown borders.
@@ -141,7 +199,7 @@ class Minesweeper_solver():
         self.known[5,2] = 1
         playerboard[0][0] = gameboard[0][0]
         playerboard[0][1] = gameboard[0][1]
-        playerboard[1][1] = gameboard[1][1]
+        # playerboard[1][1] = gameboard[1][1]
         playerboard[1][4] = gameboard[1][4]
         playerboard[4][2] = gameboard[4][2]
         playerboard[4][3] = gameboard[4][3]
