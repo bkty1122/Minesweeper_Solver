@@ -78,6 +78,18 @@ def reduce_numbers(state, mines=None):
     state[~np.isnan(state)] -= num_neighboring_mines[~np.isnan(state)]
     return state
 
+def boolean_combine(arr_a, arr_b):
+        combined = []
+        for row_a, row_b in zip(arr_a, arr_b):
+            row_combined = []
+            for a, b in zip(row_a, row_b):
+                if a == 'True':
+                    row_combined.append(b)
+            else:
+                row_combined.append(a)
+                combined.append(np.asarray(row_combined))
+        return np.asarray(combined)
+
 # array([[ True,  True,  True, False, False, False,  True],
 #        [ True,  True,  True, False,  True, False,  True],
 #        [ True,  True,  True, False, False, False,  True],

@@ -47,7 +47,9 @@ class Minesweeper_solver():
             return self.contraint_area(state_trans) # subject to modify to test result
         return np.full((self._rows,self._cols), self._total_mines / (self._rows * self._cols))
     def counting_step(self, state):
-        #only return results that must be safe to open, stating as 0 in the result. 
+        '''
+        Return a bool array, stating which cells are safe or mines by counting nearby cells
+        '''
         result = np.full((self._rows,self._cols), np.nan)
         state_ck = reduce_numbers(state, self.known == 1)
         state_ck_zero_mask = np.full((self._rows,self._cols), True)
@@ -68,7 +70,6 @@ class Minesweeper_solver():
             if state_ck_one_mask.sum() == state_ck[i,j]:
                 result[state_ck_one_mask == True] = 1
         return result
-        
     def contraint_area(self, state):
         components, num_components = self.components(state)
         constraint = np.full((self._rows,self._cols), None, dtype=object)
@@ -149,6 +150,20 @@ class Minesweeper_solver():
                 cm_index_check += 1
             i += 1
         # now, solutions is filtered, it has removed results in which sums of overlapped cells greater than the constraint
+        solutions = [solutions[i][1:] for i in range(len(solutions))] # delete the first element of each solution, which is the index of cm
+        k = 1
+        while k < (len(solutions)):
+            j = 0
+            j_k_interset = ~np.isnan(solutions[j]) & ~np.isnan(solutions[k])
+            j_k_bool_interset = boolean_combine(solutions[j], j_k_interset)
+            j_k_test = np.nan_to_num(j_k_bool_interset, copy = False) == np.nan_to_num(solutions[k], copy = False)
+            if j_k_test.all() == True:
+               del solutions[j]
+               k -= 1
+            k += 1
+        # interset = ~np.isnan(solutions[0]) & ~np.isnan(solutions[3])
+        # bool_interset = boolean_combine(solutions[0], interset)
+        # test = (np.nan_to_num(bool_interset, copy = False) == np.nan_to_num(solutions[3], copy = False)).all()
         return print('Total neigh coord: {}\nSolution: {}\n'.format(total_neigh_coord, solutions))
     
     def components(self, state):
@@ -194,19 +209,20 @@ class Minesweeper_solver():
                 j += 1
             i += 1
         return labeled, num_components
-        
+    
     def trial(self):
         self.known[5,2] = 1
         playerboard[0][0] = gameboard[0][0]
         playerboard[0][1] = gameboard[0][1]
-        # playerboard[1][1] = gameboard[1][1]
+        # playerboard[1][1] = gameboard[1][1] subject to modify
         playerboard[1][4] = gameboard[1][4]
         playerboard[4][2] = gameboard[4][2]
         playerboard[4][3] = gameboard[4][3]
         playerboard[6][2] = gameboard[6][2]
         print(np.array(playerboard))
         print(self.solve())
-        #print(self.known)
+        # print(self.known)
 
 trial_minesweeper = Minesweeper_solver(7,7,7)
 trial_minesweeper.trial()
+
