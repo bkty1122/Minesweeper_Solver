@@ -131,6 +131,14 @@ print(lambda_trial_1_result)
  [       nan        0.16666667 nan        0.         0.41666667 nan nan]
  [       nan        0.         2.         0.         nan        nan nan]]
 
+array([[       nan,        nan,        nan, 0.4       , 0.2       , 0.2       , 0.06666667],
+       [       nan,        nan,        nan, 0.4       ,        nan, nan, 0.06666667],
+       [       nan,        nan,        nan, 0.4       , 0.2       , 0.2       , 0.06666667],
+       [       nan,        nan,        nan,        nan,        nan, nan,        nan],
+       [       nan,        nan,        nan,        nan,        nan, nan,        nan],
+       [       nan,        nan,        nan,        nan,        nan, nan,        nan],
+       [       nan,        nan,        nan,        nan,        nan, nan,        nan]])
+
 [[1, 1, 1, 1, 1, 0, 0], 
 ['X', 1, 1, 'X', 2, 1, 1], 
 [1, 1, 1, 1, 2, 'X', 1], 

@@ -71,10 +71,10 @@ class Minesweeper_solver():
     def contraint_area(self, state):
         components, num_components = self.components(state)
         result = []
-        for c in range(num_components+1):
+        for c in range(1, num_components+1):
             result.append(self.guess_mine_component(state, components, c))
-        return self.guess_mine_component(state, components)
-    
+        return result
+
     def guess_mine_component(self, state, components, num_component = 1):
         '''
         return a bool array, stating which cells are neighbours of component 1
@@ -246,7 +246,7 @@ class Minesweeper_solver():
         self.known[5,2] = 1
         playerboard[0][0] = gameboard[0][0]
         playerboard[0][1] = gameboard[0][1]
-        playerboard[0][2] = gameboard[0][2]
+        # playerboard[0][2] = gameboard[0][2]
         playerboard[1][5] = gameboard[1][5]
         playerboard[1][4] = gameboard[1][4]
         playerboard[4][2] = gameboard[4][2]
