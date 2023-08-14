@@ -1,17 +1,14 @@
 # Reference code: https://github.com/JohnnyDeuss/minesweeper-solver/blob/master/minesweeper_solver/solver.py 
+# Python interpreter: 3.9.13
 import numpy as np
 import random as rand
 from tools import *
 from scipy.ndimage import label
-from constraint import Problem, ExactSumConstraint, MaxSumConstraint
-from operator import mul
-from functools import reduce
-
-
+from constraint import Problem, ExactSumConstraint
 
 gameboard = [[1, 1, 1, 1, 1, 0, 0], 
              ['X', 1, 1, 'X', 2, 1, 1], 
-             [1, 1, 1, 1, 2, 'X', 1], 
+             [1, 1, 1, 1, 2, 'X', 1],  #1, 
              [0, 0, 0, 1, 2, 2, 1], 
              [0, 1, 2, 3, 'X', 1, 0], 
              [0, 1, 'X', 'X', 3, 2, 1], 
@@ -72,16 +69,11 @@ class Minesweeper_solver():
         return result
     def contraint_area(self, state):
         components, num_components = self.components(state)
-        constraint = np.full((self._rows,self._cols), None, dtype=object)
-        for i in range(1, num_components + 1):
-            cm = neighbors(components == i) & ~np.isnan(state)
-            y =[ExactSumConstraint(int(num)) for num in state[cm]]
-            constraint[cm] = y
-        # for now, the constraint array contains the exactsumconstraint, stated from the number in the state
-        # now: how can we make the problem knows the constraint? 
+        result = []
+        for c in range(num_components+1):
+            result.append(self.guess_mine_component(state, components, c))
         return self.guess_mine_component(state, components)
-    
-    def guess_mine_component(self, state, components, num_component=1):
+    def guess_mine_component(self, state, components, num_component = 2):
         '''
         return a bool array, stating which cells are neighbours of component 1
         grap each cm's neighbour (except known cells), convert to a list with their coordinates, and append to a list
@@ -143,28 +135,64 @@ class Minesweeper_solver():
                             i_array = solutions[i][1:]
                             j_array = solutions[j][1:]
                             if np.sum(np.array(i_array)[bool_true]) > constraint_i_j:
-                                del solutions[i]
+                                 del solutions[i]
                             elif np.sum(np.array(j_array)[bool_true]) > constraint_i_j:
                                 del solutions[j]
                 j_list.clear()
                 cm_index_check += 1
             i += 1
         # now, solutions is filtered, it has removed results in which sums of overlapped cells greater than the constraint
-        solutions = [solutions[i][1:] for i in range(len(solutions))] # delete the first element of each solution, which is the index of cm
+        # build a mask for each label_cm, calculate prob for mines in each cells
+        prob_semi = []
+        cm_index_check = 1
+        while cm_index_check < np.count_nonzero(label_cm) + 1:
+            j_list = []
+            for j in range(len(solutions)):
+                if solutions[j][0] == cm_index_check:
+                    j_list.append(j)
+            j_array = [solutions[j][1:] for j in j_list]
+            j_array = np.sum(np.nan_to_num(j_array, copy = False), axis = 0)
+            j_array = j_array/len(j_list)
+            j_array = [i for s in j_array for i in s]
+            prob_semi.append(j_array)
+            cm_index_check += 1
+        # now, prob is a list of arrays. each array is a probability matrix for each cm
+        # prob[0] is the probability matrix for cm 1, prob[1] is the probability matrix for cm 2, etc.
+        # compare different non-zero element, choose the one with the highest probability;
+        prob_semi_sum = np.sum(prob_semi, axis=0)
+        prob_semi_sum = prob_semi_sum.flatten()
+        prob_semi_sum[prob_semi_sum == 0] = np.nan
+        if prob_semi_sum.size == self._rows * self._cols:
+            prob_semi_sum = prob_semi_sum.reshape((self._rows,self._cols))
+        # must store prob_semi_sum before changing prob_semi 0 to nan
+        for i in range(len(prob_semi)):
+            prob_semi[i][0] = prob_semi[i][0].flatten()
+            prob_semi[i][0][prob_semi[i][0] == 0] = np.nan
+            if prob_semi[i][0].size == self._rows * self._cols:
+                prob_semi[i][0] = prob_semi[i][0].reshape((self._rows, self._cols))
+        # convert prob_semi 0 to nan 
+        result = np.full((self._rows,self._cols), np.nan)
         k = 1
-        while k < (len(solutions)):
-            j = 0
-            j_k_interset = ~np.isnan(solutions[j]) & ~np.isnan(solutions[k])
-            j_k_bool_interset = boolean_combine(solutions[j], j_k_interset)
-            j_k_test = np.nan_to_num(j_k_bool_interset, copy = False) == np.nan_to_num(solutions[k], copy = False)
-            if j_k_test.all() == True:
-               del solutions[j]
-               k -= 1
+        while k < len(prob_semi):
+            l = k - 1
+            prob_semi, result = overlap_compare_replace(state, label_cm, l, k, prob_semi, result)
+            if k == len(prob_semi) - 1:
+                prob_semi, result = overlap_compare_replace(state, label_cm, 0, k, prob_semi, result)
             k += 1
-        # interset = ~np.isnan(solutions[0]) & ~np.isnan(solutions[3])
-        # bool_interset = boolean_combine(solutions[0], interset)
-        # test = (np.nan_to_num(bool_interset, copy = False) == np.nan_to_num(solutions[3], copy = False)).all()
-        return print('Total neigh coord: {}\nSolution: {}\n'.format(total_neigh_coord, solutions))
+        # return result if result is not all nan; else return prob_semi_sum
+        cm_num_mask = [components == num_component] # return a list of bool array, stating which cells are in component 1
+        if np.isnan(result).all() and prob_semi_sum.shape == (self._rows, self._cols):
+            prob_semi_sum[cm] = self.known[cm] + 2 # 2 means safe, 3 means mine
+            return prob_semi_sum
+        else:
+            result_cm_num_mask = np.isnan(result) & cm_num_mask
+            result_cm_num_mask = result_cm_num_mask.flatten()
+            # 同樣的技術問題...
+            if result_cm_num_mask.size == self._rows * self._cols:
+                result_cm_num_mask = result_cm_num_mask.reshape((self._rows,self._cols))
+            result[result_cm_num_mask] = 0
+            result[cm] = self.known[cm] + 2
+            return result
     
     def components(self, state):
         # Get the numbers next to unknown borders.
@@ -209,19 +237,17 @@ class Minesweeper_solver():
                 j += 1
             i += 1
         return labeled, num_components
-    
     def trial(self):
         self.known[5,2] = 1
         playerboard[0][0] = gameboard[0][0]
         playerboard[0][1] = gameboard[0][1]
-        # playerboard[1][1] = gameboard[1][1] subject to modify
+        # playerboard[1][1] = gameboard[1][1] #subject to modify
         playerboard[1][4] = gameboard[1][4]
         playerboard[4][2] = gameboard[4][2]
         playerboard[4][3] = gameboard[4][3]
         playerboard[6][2] = gameboard[6][2]
-        print(np.array(playerboard))
         print(self.solve())
-        # print(self.known)
+        print(np.array(playerboard))
 
 trial_minesweeper = Minesweeper_solver(7,7,7)
 trial_minesweeper.trial()

@@ -1,7 +1,6 @@
-""" A module with common functions for working with minesweeper games. """
+#Ref: https://github.com/JohnnyDeuss/minesweeper-solver/blob/master/minesweeper_solver/solver.py
 import numpy as np
 from scipy.ndimage import binary_dilation
-#https://zhuanlan.zhihu.com/p/362042756 binary_dilation 的用途
 from scipy.ndimage import generate_binary_structure
 from scipy.signal import convolve2d
 
@@ -9,27 +8,13 @@ def dilate(bool_ar):
     """ Perform binary dilation 擴張 with a structuring element with connectivity 2. """
     return binary_dilation(bool_ar, structure=generate_binary_structure(2, 2))
 
-
 def neighbors(bool_ar):
     """ Return a binary mask marking all squares that neighbor a True cells in the boolean array. """
     return bool_ar ^ dilate(bool_ar)
 
-
 def neighbors_xy(x, y, shape):
     """ Return a binary mask marking all squares that neighbor the square at (x, y). """
     return neighbors(mask_xy(x, y, shape))
-
-# print(neighbors_xy(0,0,(7,7)))
-# in the tool pack, input neighbours_xy, return array that only mark 
-# cells that are neighbour to (x,y) as 'True'
-# output: 
-# [[False  True False False False False False]
-#  [ True  True False False False False False]
-#  [False False False False False False False]
-#  [False False False False False False False]
-#  [False False False False False False False]
-#  [False False False False False False False]
-#  [False False False False False False False]]
 
 def mask_xy(x, y, shape):
     """ Create a binary mask that marks only the square at (x, y). """
@@ -40,28 +25,6 @@ def mask_xy(x, y, shape):
 def boundary(state):
     """ Return a binary mask marking all closed squares that are adjacent to a number. """
     return neighbors(~np.isnan(state))
-# state = np.full((7,7), np.nan)
-# state[0,0] = 1
-# state[1,1] = 1
-# print(state & boundary(state))
-# State output: 
-# [[ 1. nan nan nan nan nan nan]
-#  [nan  1. nan nan nan nan nan]
-#  [nan nan nan nan nan nan nan]
-#  [nan nan nan nan nan nan nan]
-#  [nan nan nan nan nan nan nan]
-#  [nan nan nan nan nan nan nan]
-#  [nan nan nan nan nan nan nan]]
-# under this state, the boundary module produce the following output:
-# [[False  True  True False False False False]
-#  [ True False  True False False False False]
-#  [ True  True  True False False False False]
-#  [False False False False False False False]
-#  [False False False False False False False]
-#  [False False False False False False False]
-#  [False False False False False False False]]
-# True means arrays involue in the guessing state (known in its neighbour), 
-# False means arrays not involved in the guessing state
 
 def count_neighbors(bool_ar):
     """ Calculate how many True's there are next to a square. """
@@ -78,9 +41,9 @@ def reduce_numbers(state, mines=None):
     state[~np.isnan(state)] -= num_neighboring_mines[~np.isnan(state)]
     return state
 
-def boolean_combine(arr_a, arr_b):
+def boolean_combine(arr_a, arr_bool):
         combined = []
-        for row_a, row_b in zip(arr_a, arr_b):
+        for row_a, row_b in zip(arr_a, arr_bool):
             row_combined = []
             for a, b in zip(row_a, row_b):
                 if a == 'True':
@@ -90,10 +53,28 @@ def boolean_combine(arr_a, arr_b):
                 combined.append(np.asarray(row_combined))
         return np.asarray(combined)
 
-# array([[ True,  True,  True, False, False, False,  True],
-#        [ True,  True,  True, False,  True, False,  True],
-#        [ True,  True,  True, False, False, False,  True],
-#        [ True, False, False, False,  True,  True,  True],
-#        [ True, False,  True, False,  True,  True,  True],
-#        [ True, False, False, False,  True,  True,  True],
-#        [ True,  True,  True,  True,  True,  True,  True]])))
+def overlap_compare_replace(state, label, x, y, prob, result, final_check = True):
+    '''
+    Compare two prob results, return the prob in which is larger. modify the smaller results.
+    '''
+    x_y_overlap = ~np.isnan(prob[x][0]) & ~np.isnan(prob[y][0]) # True if overlap
+    x_not_overlap = ~x_y_overlap & ~np.isnan(prob[x][0])
+    y_not_overlap = ~x_y_overlap & ~np.isnan(prob[y][0])
+    if x_y_overlap.any() == True:
+        if (prob[x][0][x_y_overlap] > prob[y][0][x_y_overlap]).any():
+            result[x_y_overlap] = prob[x][0][x_y_overlap]
+            prob[y][0][x_y_overlap] = 0
+            prob[y][0][y_not_overlap] = (int(state[label == y + 1]) - result[x_y_overlap].sum())/ y_not_overlap.sum()
+        if (prob[x][0][x_y_overlap] < prob[y][0][x_y_overlap]).any():
+            result[x_y_overlap] = prob[y][0][x_y_overlap]
+            prob[x][0][x_y_overlap] = 0
+            prob[x][0][x_not_overlap] = (int(state[label == x + 1]) - result[x_y_overlap].sum())/ x_not_overlap.sum()
+    # check whether prob has turn to result
+    if final_check == True:
+        x_result_notinclude = np.isnan(result) & ~np.isnan(prob[x][0])
+        y_result_notinclude = np.isnan(result) & ~np.isnan(prob[y][0])
+        if x_result_notinclude.any():
+            result[x_result_notinclude] = prob[x][0][x_result_notinclude]
+        if y_result_notinclude.any():
+            result[y_result_notinclude] = prob[y][0][y_result_notinclude]
+    return prob, result

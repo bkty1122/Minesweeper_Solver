@@ -112,7 +112,6 @@ class Solver:
             self.known[known_safe] = 0
             # Update what is unknown.
             unknown_squares = unknown_squares & ~known_safe
-
             # Now update the result matrix for both steps, 0 for safe squares, 1 for mines.
             result[known_safe] = 0
             result[known_mines] = 1
