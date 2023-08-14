@@ -5,6 +5,7 @@ import random as rand
 from tools import *
 from scipy.ndimage import label
 from constraint import Problem, ExactSumConstraint
+from functools import reduce
 
 gameboard = [[1, 1, 1, 1, 1, 0, 0], 
              ['X', 1, 1, 'X', 2, 1, 1], 
@@ -29,44 +30,94 @@ class Minesweeper_solver():
     def mines_left(self):
         return self._total_mines - self.known_mines_count()
     def solve(self, state = playerboard.copy()):
-        state_trans = np.array([[state[y][x] if isinstance(state[y][x], int) 
+        state = np.array([[state[y][x] if isinstance(state[y][x], int) 
                            else np.nan for x in range(self._rows)] for y in range(self._cols)])
         #the state[y][x] must be written in [y][x], not [x][y], otherwise this would cause error when combining it with self.known
-        if not np.isnan(state_trans).all():
+        if not np.isnan(state).all():
             #transfer opened cells in state_trans, marked as 0 and append knowledge in self.known
-            self.known[~np.isnan(state_trans)] = 0 
-            count_result = self.counting_step(state_trans)
+            self.known[~np.isnan(state)] = 0 
+            count_result, state = self._counting_step(state)
             if 0 in count_result and self._stop_at_solution:
-                return count_result
-            elif 1 in count_result:
                 self.known[count_result == 1] = 1
                 return count_result
-            return self.contraint_area(state_trans) # subject to modify to test result
+            return self.contraint_area(state) # subject to modify to test result
         return np.full((self._rows,self._cols), self._total_mines / (self._rows * self._cols))
-    def counting_step(self, state):
-        '''
-        Return a bool array, stating which cells are safe or mines by counting nearby cells
-        '''
-        result = np.full((self._rows,self._cols), np.nan)
-        state_ck = reduce_numbers(state, self.known == 1)
-        state_ck_zero_mask = np.full((self._rows,self._cols), True)
-        if state_ck.size - np.count_nonzero(np.isnan(state_ck)) > 0: # if there's 0 in state_ck
-            state_ck_zero = np.argwhere(state_ck == 0) # return which [x,y] in state_check is 0
-            for i in range(len(state_ck_zero)):
-                a = neighbors_xy(state_ck_zero[i][1], state_ck_zero[i][0], (self._rows, self._cols))
-                state_ck_zero_mask = state_ck_zero_mask & ~a #return a boolean array, state which are the neighbours of sale cells
-            state_ck_zero_mask = np.isnan(self.known) & ~state_ck_zero_mask #combine with bool np.isnan and ~state_ck_zero_mask
-            result[state_ck_zero_mask == True] = 0
-        # Check if number of neighbour mines is equal to the number in the cell
-        state_ck_one = np.argwhere(state_ck > 0)
-        for (i,j) in state_ck_one:
-            i_arr = np.full((self._rows,self._cols), False)
-            i_arr[i,j] = True
-            a = neighbors_xy(i,j, (self._rows, self._cols))
-            state_ck_one_mask = (a | i_arr) & np.isnan(self.known)
-            if state_ck_one_mask.sum() == state_ck[i,j]:
-                result[state_ck_one_mask == True] = 1
-        return result
+    # def counting_step(self, state):
+    #     '''
+    #     Return a bool array, stating which cells are safe or mines by counting nearby cells
+    #     '''
+        # result = np.full((self._rows,self._cols), np.nan)
+        # state_ck = reduce_numbers(state, self.known == 1)
+        # state_ck_zero_mask = np.full((self._rows,self._cols), True)
+        # if state_ck.size - np.count_nonzero(np.isnan(state_ck)) > 0: # if there's 0 in state_ck
+        #     state_ck_zero = np.argwhere(state_ck == 0) # return which [x,y] in state_check is 0
+        #     for i in range(len(state_ck_zero)):
+        #         a = neighbors_xy(state_ck_zero[i][1], state_ck_zero[i][0], (self._rows, self._cols))
+        #         state_ck_zero_mask = state_ck_zero_mask & ~a #return a boolean array, state which are the neighbours of sale cells
+        #     state_ck_zero_mask = np.isnan(self.known) & ~state_ck_zero_mask #combine with bool np.isnan and ~state_ck_zero_mask
+        #     result[state_ck_zero_mask == True] = 0
+        # # Check if number of neighbour mines is equal to the number in the cell
+        # state_ck_one = np.argwhere(state_ck > 0)
+        # for (i,j) in state_ck_one:
+        #     i_arr = np.full((self._rows,self._cols), False)
+        #     i_arr[i,j] = True
+        #     a = neighbors_xy(i,j, (self._rows, self._cols))
+        #     state_ck_one_mask = (a | i_arr) & np.isnan(self.known)
+        #     if state_ck_one_mask.sum() == state_ck[i,j]:
+        #         result[state_ck_one_mask == True] = 1
+        # return result
+    def _counting_step(self, state):
+        """ Find all trivially easy solutions. There are 2 cases we consider:
+            - A square with a 0 in it and has unflagged and unopened neighbors means that we can open all neighbors.
+            - 1 square with a number that matches the number of unflagged and unopened neighbors means that we can flag
+              all those neigbors.
+            :param state: The unreduced state of the minefield
+            :returns result: An array with known mines marked with 1, squares safe to open with 0 and everything else
+                             as np.nan.
+            :returns reduced_state: The reduced state, where numbers indicate the number of neighboring mines that have
+                                    *not* been found.
+        """
+        result = np.full(state.shape, np.nan)
+        # This step can be done multiple times, as each time we have results, the numbers can be further reduced.
+        new_results = True
+        # Subtract all numbers by the amount of neighboring mines we've already found, simplifying the game.
+        state = reduce_numbers(state, self.known == 1)
+        # Calculate the unknown square, i.e. that are unopened and we've not previously found their value.
+        unknown_squares = np.isnan(state) & np.isnan(self.known)
+        while new_results:
+            num_unknown_neighbors = count_neighbors(unknown_squares)
+            ### First part: squares with the number N in it and N unflagged/unopened neighbors => all mines.
+            # Calculate squares with the same amount of unflagged neighbors as neighboring mines (except if N==0).
+            solutions = (state == num_unknown_neighbors) & (num_unknown_neighbors > 0)
+            # Create a mask for all those squares that we now know are mines. The reduce makes a neighbor mask for each
+            # solution and or's them together, making one big neighbors mask.
+            known_mines = unknown_squares & reduce(np.logical_or,
+                [neighbors_xy(x, y, state.shape) for y, x in zip(*solutions.nonzero())], np.zeros(state.shape, dtype=bool))
+            # Update our known matrix with these new finding: 1 for mines.
+            self.known[known_mines] = 1
+            # Further reduce the numbers, since we found new mines.
+            state = reduce_numbers(state, known_mines)
+            # Update what is unknown by removing known flags from the `unknown_squares` mask.
+            unknown_squares = unknown_squares & ~known_mines
+            # The unknown neighbor count might've changed too, so recompute it.
+            num_unknown_neighbors = count_neighbors(unknown_squares)
+
+            ### Second part: squares with a 0 in and any unflagged/unopened neighbors => all safe.
+            # Calculate the squares that have a 0 in them, but still have unknown neighbors.
+            solutions = (state == 0) & (num_unknown_neighbors > 0)
+            # Select only those squares that are unknown and we've found to be neighboring any of the found solutions.
+            # The reduce makes a neighbor mask for each solution and or's them together, making one big neighbor mask.
+            known_safe = unknown_squares & reduce(np.logical_or,
+                [neighbors_xy(x, y, state.shape) for y, x in zip(*solutions.nonzero())], np.zeros(state.shape, dtype=bool))
+            # Update our known matrix with these new finding: 0 for safe squares.
+            self.known[known_safe] = 0
+            # Update what is unknown.
+            unknown_squares = unknown_squares & ~known_safe
+            # Now update the result matrix for both steps, 0 for safe squares, 1 for mines.
+            result[known_safe] = 0
+            result[known_mines] = 1
+            new_results = (known_safe | known_mines).any()
+        return result, state
     
     def contraint_area(self, state):
         components, num_components = self.components(state)
@@ -243,17 +294,17 @@ class Minesweeper_solver():
             i += 1
         return labeled, num_components
     def trial(self):
-        self.known[5,2] = 1
         playerboard[0][0] = gameboard[0][0]
         playerboard[0][1] = gameboard[0][1]
-        # playerboard[0][2] = gameboard[0][2]
+        playerboard[3][4] = gameboard[3][4]
         playerboard[1][5] = gameboard[1][5]
-        playerboard[1][4] = gameboard[1][4]
-        playerboard[4][2] = gameboard[4][2]
-        playerboard[4][3] = gameboard[4][3]
-        playerboard[6][2] = gameboard[6][2]
+        # playerboard[1][4] = gameboard[1][4]
+        # playerboard[4][2] = gameboard[4][2]
+        # playerboard[4][3] = gameboard[4][3]
+        # playerboard[6][2] = gameboard[6][2]
         print(self.solve())
         print(np.array(playerboard))
+        print(self.known)
 
 trial_minesweeper = Minesweeper_solver(7,7,7)
 trial_minesweeper.trial()
