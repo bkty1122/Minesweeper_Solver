@@ -62,13 +62,21 @@ def overlap_compare_replace(state, label, x, y, prob, result, final_check = True
     y_not_overlap = ~x_y_overlap & ~np.isnan(prob[y][0])
     if x_y_overlap.any() == True:
         if (prob[x][0][x_y_overlap] > prob[y][0][x_y_overlap]).any():
-            result[x_y_overlap] = prob[x][0][x_y_overlap]
-            prob[y][0][x_y_overlap] = 0
-            prob[y][0][y_not_overlap] = (int(state[label == y + 1]) - result[x_y_overlap].sum())/ y_not_overlap.sum()
+            if prob[y][0][x_y_overlap].sum() == 0:
+                prob[x][0][x_not_overlap] = (int(state[label == x + 1]) - result[x_y_overlap].sum())/ x_not_overlap.sum()
+                result[x_not_overlap] = prob[x][0][x_not_overlap]
+            else:
+                result[x_y_overlap] = prob[x][0][x_y_overlap]
+                prob[y][0][x_y_overlap] = 0
+                prob[y][0][y_not_overlap] = (int(state[label == y + 1]) - result[x_y_overlap].sum())/ y_not_overlap.sum()
         if (prob[x][0][x_y_overlap] < prob[y][0][x_y_overlap]).any():
-            result[x_y_overlap] = prob[y][0][x_y_overlap]
-            prob[x][0][x_y_overlap] = 0
-            prob[x][0][x_not_overlap] = (int(state[label == x + 1]) - result[x_y_overlap].sum())/ x_not_overlap.sum()
+            if prob[x][0][x_y_overlap].sum() == 0:
+                prob[y][0][y_not_overlap] = (int(state[label == y + 1]) - result[x_y_overlap].sum())/ y_not_overlap.sum()
+                result[y_not_overlap] = prob[y][0][y_not_overlap]
+            else:
+                result[x_y_overlap] = prob[y][0][x_y_overlap]
+                prob[x][0][x_y_overlap] = 0
+                prob[x][0][x_not_overlap] = (int(state[label == x + 1]) - result[x_y_overlap].sum())/ x_not_overlap.sum()
     # check whether prob has turn to result
     if final_check == True:
         x_result_notinclude = np.isnan(result) & ~np.isnan(prob[x][0])

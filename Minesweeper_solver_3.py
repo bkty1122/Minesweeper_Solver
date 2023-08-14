@@ -67,13 +67,15 @@ class Minesweeper_solver():
             if state_ck_one_mask.sum() == state_ck[i,j]:
                 result[state_ck_one_mask == True] = 1
         return result
+    
     def contraint_area(self, state):
         components, num_components = self.components(state)
         result = []
         for c in range(num_components+1):
             result.append(self.guess_mine_component(state, components, c))
         return self.guess_mine_component(state, components)
-    def guess_mine_component(self, state, components, num_component = 2):
+    
+    def guess_mine_component(self, state, components, num_component = 1):
         '''
         return a bool array, stating which cells are neighbours of component 1
         grap each cm's neighbour (except known cells), convert to a list with their coordinates, and append to a list
@@ -179,10 +181,14 @@ class Minesweeper_solver():
             if k == len(prob_semi) - 1:
                 prob_semi, result = overlap_compare_replace(state, label_cm, 0, k, prob_semi, result)
             k += 1
+        # k = len(prob_semi) - 1
+        # while k > 0:
+        #     l = k - 1
+        #     prob_semi, result = overlap_compare_replace(state, label_cm, l, k, prob_semi, result, final_check=False)
+        #     k -= 1
         # return result if result is not all nan; else return prob_semi_sum
         cm_num_mask = [components == num_component] # return a list of bool array, stating which cells are in component 1
         if np.isnan(result).all() and prob_semi_sum.shape == (self._rows, self._cols):
-            prob_semi_sum[cm] = self.known[cm] + 2 # 2 means safe, 3 means mine
             return prob_semi_sum
         else:
             result_cm_num_mask = np.isnan(result) & cm_num_mask
@@ -191,7 +197,6 @@ class Minesweeper_solver():
             if result_cm_num_mask.size == self._rows * self._cols:
                 result_cm_num_mask = result_cm_num_mask.reshape((self._rows,self._cols))
             result[result_cm_num_mask] = 0
-            result[cm] = self.known[cm] + 2
             return result
     
     def components(self, state):
@@ -241,7 +246,8 @@ class Minesweeper_solver():
         self.known[5,2] = 1
         playerboard[0][0] = gameboard[0][0]
         playerboard[0][1] = gameboard[0][1]
-        # playerboard[1][1] = gameboard[1][1] #subject to modify
+        playerboard[0][2] = gameboard[0][2]
+        playerboard[1][5] = gameboard[1][5]
         playerboard[1][4] = gameboard[1][4]
         playerboard[4][2] = gameboard[4][2]
         playerboard[4][3] = gameboard[4][3]
