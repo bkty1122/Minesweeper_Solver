@@ -53,10 +53,11 @@ def boolean_combine(arr_a, arr_bool):
                 combined.append(np.asarray(row_combined))
         return np.asarray(combined)
 
-def overlap_compare_replace(state, label, x, y, prob, result, final_check = True):
+def overlap_compare_replace(state, label, x, y, prob, result):
     '''
     Compare two prob results, return the prob in which is larger. modify the smaller results.
     '''
+    equal = False
     x_y_overlap = ~np.isnan(prob[x][0]) & ~np.isnan(prob[y][0]) # True if overlap
     x_not_overlap = ~x_y_overlap & ~np.isnan(prob[x][0])
     y_not_overlap = ~x_y_overlap & ~np.isnan(prob[y][0])
@@ -77,8 +78,11 @@ def overlap_compare_replace(state, label, x, y, prob, result, final_check = True
                 result[x_y_overlap] = prob[y][0][x_y_overlap]
                 prob[x][0][x_y_overlap] = 0
                 prob[x][0][x_not_overlap] = (int(state[label == x + 1]) - result[x_y_overlap].sum())/ x_not_overlap.sum()
+        else:
+            equal = True
+            return prob, result
     # check whether prob has turn to result
-    if final_check == True:
+    if equal == False:
         x_result_notinclude = np.isnan(result) & ~np.isnan(prob[x][0])
         y_result_notinclude = np.isnan(result) & ~np.isnan(prob[y][0])
         if x_result_notinclude.any():

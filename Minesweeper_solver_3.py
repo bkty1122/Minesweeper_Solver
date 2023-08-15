@@ -42,30 +42,6 @@ class Minesweeper_solver():
                 return count_result
             return self.contraint_area(state) # subject to modify to test result
         return np.full((self._rows,self._cols), self._total_mines / (self._rows * self._cols))
-    # def counting_step(self, state):
-    #     '''
-    #     Return a bool array, stating which cells are safe or mines by counting nearby cells
-    #     '''
-        # result = np.full((self._rows,self._cols), np.nan)
-        # state_ck = reduce_numbers(state, self.known == 1)
-        # state_ck_zero_mask = np.full((self._rows,self._cols), True)
-        # if state_ck.size - np.count_nonzero(np.isnan(state_ck)) > 0: # if there's 0 in state_ck
-        #     state_ck_zero = np.argwhere(state_ck == 0) # return which [x,y] in state_check is 0
-        #     for i in range(len(state_ck_zero)):
-        #         a = neighbors_xy(state_ck_zero[i][1], state_ck_zero[i][0], (self._rows, self._cols))
-        #         state_ck_zero_mask = state_ck_zero_mask & ~a #return a boolean array, state which are the neighbours of sale cells
-        #     state_ck_zero_mask = np.isnan(self.known) & ~state_ck_zero_mask #combine with bool np.isnan and ~state_ck_zero_mask
-        #     result[state_ck_zero_mask == True] = 0
-        # # Check if number of neighbour mines is equal to the number in the cell
-        # state_ck_one = np.argwhere(state_ck > 0)
-        # for (i,j) in state_ck_one:
-        #     i_arr = np.full((self._rows,self._cols), False)
-        #     i_arr[i,j] = True
-        #     a = neighbors_xy(i,j, (self._rows, self._cols))
-        #     state_ck_one_mask = (a | i_arr) & np.isnan(self.known)
-        #     if state_ck_one_mask.sum() == state_ck[i,j]:
-        #         result[state_ck_one_mask == True] = 1
-        # return result
     def _counting_step(self, state):
         """ Find all trivially easy solutions. There are 2 cases we consider:
             - A square with a 0 in it and has unflagged and unopened neighbors means that we can open all neighbors.
@@ -101,7 +77,6 @@ class Minesweeper_solver():
             unknown_squares = unknown_squares & ~known_mines
             # The unknown neighbor count might've changed too, so recompute it.
             num_unknown_neighbors = count_neighbors(unknown_squares)
-
             ### Second part: squares with a 0 in and any unflagged/unopened neighbors => all safe.
             # Calculate the squares that have a 0 in them, but still have unknown neighbors.
             solutions = (state == 0) & (num_unknown_neighbors > 0)
@@ -121,9 +96,25 @@ class Minesweeper_solver():
     
     def contraint_area(self, state):
         components, num_components = self.components(state)
-        result = []
+        result_list = []
+        result = np.full(state.shape, np.nan)
         for c in range(1, num_components+1):
-            result.append(self.guess_mine_component(state, components, c))
+            result_list.append(self.guess_mine_component(state, components, c))
+        # Merge the results into one single array.
+        for r in result_list:
+            _result = ~np.isnan(r)
+            result[_result] = r[_result]
+        Mine_expected = result[~np.isnan(result)].sum()
+        # update known, in result returns 0 or 1
+        # but first calculate expected value of mines
+        Mine_expected = result[~np.isnan(result)].sum()
+        result[~np.isnan(self.known)] = self.known[~np.isnan(self.known)] + 2 # 2 for safe, 3 for mine
+        # update known
+        self.known[result == 1] = 1
+        self.known[result == 0] = 0
+        # Calculate remaining Nan's weights of mine
+        squares_left = np.isnan(result).sum()
+        result[np.isnan(result)] = (self._total_mines - Mine_expected) / (self._rows * self._cols - squares_left)
         return result
 
     def guess_mine_component(self, state, components, num_component = 1):
@@ -212,7 +203,8 @@ class Minesweeper_solver():
         # now, prob is a list of arrays. each array is a probability matrix for each cm
         # prob[0] is the probability matrix for cm 1, prob[1] is the probability matrix for cm 2, etc.
         # compare different non-zero element, choose the one with the highest probability;
-        prob_semi_sum = np.sum(prob_semi, axis=0)
+        solutions = [solutions[i][1:] for i in range(len(solutions))]
+        prob_semi_sum = np.sum(np.nan_to_num(solutions, copy= False), axis=0) / len(solutions)
         prob_semi_sum = prob_semi_sum.flatten()
         prob_semi_sum[prob_semi_sum == 0] = np.nan
         if prob_semi_sum.size == self._rows * self._cols:
@@ -232,12 +224,6 @@ class Minesweeper_solver():
             if k == len(prob_semi) - 1:
                 prob_semi, result = overlap_compare_replace(state, label_cm, 0, k, prob_semi, result)
             k += 1
-        # k = len(prob_semi) - 1
-        # while k > 0:
-        #     l = k - 1
-        #     prob_semi, result = overlap_compare_replace(state, label_cm, l, k, prob_semi, result, final_check=False)
-        #     k -= 1
-        # return result if result is not all nan; else return prob_semi_sum
         cm_num_mask = [components == num_component] # return a list of bool array, stating which cells are in component 1
         if np.isnan(result).all() and prob_semi_sum.shape == (self._rows, self._cols):
             return prob_semi_sum
@@ -294,16 +280,14 @@ class Minesweeper_solver():
             i += 1
         return labeled, num_components
     def trial(self):
-        playerboard[0][0] = gameboard[0][0]
-        playerboard[0][1] = gameboard[0][1]
-        playerboard[3][4] = gameboard[3][4]
-        playerboard[1][5] = gameboard[1][5]
-        # playerboard[1][4] = gameboard[1][4]
-        # playerboard[4][2] = gameboard[4][2]
-        # playerboard[4][3] = gameboard[4][3]
-        # playerboard[6][2] = gameboard[6][2]
+        playerboard[1][4] = gameboard[1][4]
+        playerboard[2][4] = gameboard[2][4]
+        # playerboard[0][0] = gameboard[0][0]
+        playerboard[1][2] = gameboard[1][2]
+        playerboard[6][2] = gameboard[6][2]
         print(self.solve())
         print(np.array(playerboard))
+        print(np.array(gameboard))
         print(self.known)
 
 trial_minesweeper = Minesweeper_solver(7,7,7)
