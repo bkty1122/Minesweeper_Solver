@@ -1,7 +1,6 @@
 # Reference code: https://github.com/JohnnyDeuss/minesweeper-solver/blob/master/minesweeper_solver/solver.py 
 # Python interpreter: 3.9.13
 import numpy as np
-import random as rand
 from tools import *
 from scipy.ndimage import label
 from constraint import Problem, ExactSumConstraint
@@ -114,7 +113,7 @@ class Minesweeper_solver():
         self.known[result == 0] = 0
         # Calculate remaining Nan's weights of mine
         squares_left = np.isnan(result).sum()
-        result[np.isnan(result)] = (self._total_mines - Mine_expected) / (self._rows * self._cols - squares_left)
+        result[np.isnan(result)] = (self.mines_left() - Mine_expected) / (self._rows * self._cols - squares_left)
         return result
 
     def guess_mine_component(self, state, components, num_component = 1):
@@ -279,17 +278,4 @@ class Minesweeper_solver():
                 j += 1
             i += 1
         return labeled, num_components
-    def trial(self):
-        playerboard[1][4] = gameboard[1][4]
-        playerboard[2][4] = gameboard[2][4]
-        # playerboard[0][0] = gameboard[0][0]
-        playerboard[1][2] = gameboard[1][2]
-        playerboard[6][2] = gameboard[6][2]
-        print(self.solve())
-        print(np.array(playerboard))
-        print(np.array(gameboard))
-        print(self.known)
-
-trial_minesweeper = Minesweeper_solver(7,7,7)
-trial_minesweeper.trial()
 
