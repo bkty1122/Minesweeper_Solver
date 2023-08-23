@@ -5,6 +5,7 @@ from tools import *
 from scipy.ndimage import label
 from constraint import Problem, ExactSumConstraint
 from functools import reduce
+import random
 
 gameboard = [[1, 1, 1, 1, 1, 0, 0], 
              ['X', 1, 1, 'X', 2, 1, 1], 
@@ -15,7 +16,7 @@ gameboard = [[1, 1, 1, 1, 1, 0, 0],
              [0, 1, 2, 2, 2, 'X', 1]]
 playerboard = [['-' for x in range(7)] for y in range(7)]
 
-class Minesweeper_solver():
+class Minesweeper_solver:
     def __init__(self, rows, cols, total_mines, stop_at_solution = True):
         self._rows = rows
         self._cols = cols
@@ -28,7 +29,7 @@ class Minesweeper_solver():
         return np.count_nonzero(self.known == 0) # it really works also!
     def mines_left(self):
         return self._total_mines - self.known_mines_count()
-    def solve(self, state = playerboard.copy()):
+    def solve(self, state):
         state = np.array([[state[y][x] if isinstance(state[y][x], int) 
                            else np.nan for x in range(self._rows)] for y in range(self._cols)])
         #the state[y][x] must be written in [y][x], not [x][y], otherwise this would cause error when combining it with self.known
@@ -173,8 +174,10 @@ class Minesweeper_solver():
                 for j in j_list:
                     if j < len(solutions):
                         bool_true = ~np.isnan(solutions[i][1:]) & ~np.isnan(solutions[j][1:])
-                        if np.where(bool_true == True):
-                            constraint_i_j = min(int(state[label_cm == solutions[i][0]]), int(state[label_cm == solutions[j][0]]))
+                        mask_i = label_cm == solutions[i][0]
+                        mask_j = label_cm == solutions[j][0]
+                        if mask_i.any() and mask_j.any():
+                            constraint_i_j = np.min([int(state[mask_i]), int(state[mask_j])])
                             i_array = solutions[i][1:]
                             j_array = solutions[j][1:]
                             if np.sum(np.array(i_array)[bool_true]) > constraint_i_j:
@@ -279,3 +282,31 @@ class Minesweeper_solver():
             i += 1
         return labeled, num_components
 
+count = 0
+while count < 43:
+    ms = Minesweeper_solver(7, 7, 7)
+    solve_result = ms.solve(playerboard)
+    min = np.nanmin(solve_result)
+    y, x = np.where(solve_result == min)
+    coord = list(zip(y, x))
+    if len(coord) > 1:
+        coord = random.choice(coord)
+    else:
+        coord = coord[0]
+    playerboard[coord[0]][coord[1]] = gameboard[coord[0]][coord[1]]
+    if playerboard[coord[0]][coord[1]] == 'X':
+        ms.known[coord[0]][coord[1]] = 1
+    else:
+        ms.known[coord[0]][coord[1]] = 0
+    # mark known mines on the board
+    for i in range(7):
+        for j in range(7):
+            if ms.known[i][j] == 1:
+                playerboard[i][j] = 'F'
+    
+    print(np.array(playerboard))
+    print(ms.known)
+    count += 1
+
+
+        

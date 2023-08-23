@@ -1,5 +1,4 @@
 import random
-from Minesweeper_solver import *
 
 class Minesweeper_gameboard():
     def __init__(self, rows, cols, num_mines):
