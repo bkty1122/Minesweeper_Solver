@@ -7,22 +7,24 @@ from constraint import Problem, ExactSumConstraint
 from functools import reduce
 import random
 
-gameboard = [[1, 1, 1, 1, 1, 0, 0], 
-             ['X', 1, 1, 'X', 2, 1, 1], 
-             [1, 1, 1, 1, 2, 'X', 1],  #1, 
-             [0, 0, 0, 1, 2, 2, 1], 
-             [0, 1, 2, 3, 'X', 1, 0], 
-             [0, 1, 'X', 'X', 3, 2, 1], 
-             [0, 1, 2, 2, 2, 'X', 1]]
-playerboard = [['-' for x in range(7)] for y in range(7)]
+gameboard = [[1, 1, 1, 0, 0, 0, 1, 'X', 1, 1, 1, 1, 0, 0, 1, 'X', 2, 'X', 1, 0],
+             [1, 'X', 2, 1, 0, 1, 2, 2, 1, 1, 'X', 1, 0, 0, 1, 1, 2, 1, 1, 0],
+             [1, 2, 'X', 1, 0, 1, 'X', 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1],
+             [0, 1, 1, 1, 0, 2, 2, 2, 1, 1, 2, 1, 1, 0, 1, 1, 1, 2, 'X', 2],
+             [1, 1, 1, 0, 0, 1, 'X', 1, 1, 'X', 3, 'X', 3, 2, 4, 'X', 2, 2, 'X', 2], 
+             [2, 'X', 2, 0, 1, 2, 2, 1, 2, 2, 4, 'X', 3, 'X', 'X', 'X', 3, 3, 2, 2], 
+             [2, 'X', 2, 0, 2, 'X', 3, 1, 2, 'X', 2, 1, 2, 2, 3, 3, 'X', 2, 'X', 1], 
+             [1, 1, 1, 0, 2, 'X', 3, 'X', 2, 1, 1, 0, 0, 1, 1, 2, 1, 2, 1, 1], 
+             [0, 0, 0, 0, 1, 1, 2, 1, 2, 1, 2, 1, 1, 2, 'X', 3, 1, 0, 0, 0], 
+             [0, 0, 0, 0, 0, 0, 0, 0, 1, 'X', 2, 'X', 1, 2, 'X', 'X', 1, 0, 0, 0]]
+playerboard = [['-' for x in range(20)] for y in range(10)]
 
 class Minesweeper_solver:
-    def __init__(self, rows, cols, total_mines, stop_at_solution = True):
+    def __init__(self, rows, cols, total_mines):
         self._rows = rows
         self._cols = cols
         self.known = np.full((rows, cols), np.nan)
         self._total_mines = total_mines
-        self._stop_at_solution = stop_at_solution
     def known_mines_count(self):
         return np.count_nonzero(self.known == 1) # it really works!
     def known_safe_count(self):
@@ -31,13 +33,13 @@ class Minesweeper_solver:
         return self._total_mines - self.known_mines_count()
     def solve(self, state):
         state = np.array([[state[y][x] if isinstance(state[y][x], int) 
-                           else np.nan for x in range(self._rows)] for y in range(self._cols)])
+                           else np.nan for x in range(self._cols)] for y in range(self._rows)])
         #the state[y][x] must be written in [y][x], not [x][y], otherwise this would cause error when combining it with self.known
         if not np.isnan(state).all():
             #transfer opened cells in state_trans, marked as 0 and append knowledge in self.known
             self.known[~np.isnan(state)] = 0 
             count_result, state = self._counting_step(state)
-            if 0 in count_result and self._stop_at_solution:
+            if 0 in count_result:
                 self.known[count_result == 1] = 1
                 return count_result
             return self.contraint_area(state) # subject to modify to test result
@@ -107,14 +109,13 @@ class Minesweeper_solver:
         Mine_expected = result[~np.isnan(result)].sum()
         # update known, in result returns 0 or 1
         # but first calculate expected value of mines
-        Mine_expected = result[~np.isnan(result)].sum()
         result[~np.isnan(self.known)] = self.known[~np.isnan(self.known)] + 2 # 2 for safe, 3 for mine
         # update known
         self.known[result == 1] = 1
         self.known[result == 0] = 0
         # Calculate remaining Nan's weights of mine
         squares_left = np.isnan(result).sum()
-        result[np.isnan(result)] = (self.mines_left() - Mine_expected) / (self._rows * self._cols - squares_left)
+        result[np.isnan(result)] = (self.mines_left() - Mine_expected) / (squares_left)
         return result
 
     def guess_mine_component(self, state, components, num_component = 1):
@@ -283,17 +284,17 @@ class Minesweeper_solver:
         return labeled, num_components
 
 count = 0
-while count < 42:
-    ms = Minesweeper_solver(7, 7, 7)
+while count < 180:
+    ms = Minesweeper_solver(10,20,30)
     solve_result = ms.solve(playerboard)
     print(solve_result)
     min = np.nanmin(solve_result)
     y, x = np.where(solve_result == min)
     coord = list(zip(y, x))
-    if len(coord) > 1:
+    if len(coord) > 0:
         coord = random.choice(coord)
-    else:
-        coord = coord[0]
+    # else:
+    #     pass
     playerboard[coord[0]][coord[1]] = gameboard[coord[0]][coord[1]]
     if playerboard[coord[0]][coord[1]] == 'X':
         print(solve_result)
@@ -303,8 +304,8 @@ while count < 42:
     else:
         ms.known[coord[0]][coord[1]] = 0
     # mark known mines on the board
-    for i in range(7):
-        for j in range(7):
+    for i in range(10):
+        for j in range(20):
             if ms.known[i][j] == 1:
                 playerboard[i][j] = 'F'
     print(np.array(playerboard))

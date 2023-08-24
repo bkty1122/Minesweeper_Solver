@@ -56,3 +56,6 @@ class Minesweeper_playerboard():
         if self.count_string(self.player_board,'X') > 0:
             return True
         return False
+
+board = Minesweeper_gameboard(10,20,30)
+print(board.board)
