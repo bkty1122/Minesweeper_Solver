@@ -283,9 +283,10 @@ class Minesweeper_solver:
         return labeled, num_components
 
 count = 0
-while count < 43:
+while count < 42:
     ms = Minesweeper_solver(7, 7, 7)
     solve_result = ms.solve(playerboard)
+    print(solve_result)
     min = np.nanmin(solve_result)
     y, x = np.where(solve_result == min)
     coord = list(zip(y, x))
@@ -295,7 +296,10 @@ while count < 43:
         coord = coord[0]
     playerboard[coord[0]][coord[1]] = gameboard[coord[0]][coord[1]]
     if playerboard[coord[0]][coord[1]] == 'X':
-        ms.known[coord[0]][coord[1]] = 1
+        print(solve_result)
+        print(np.array(playerboard))
+        print('you loss')
+        break
     else:
         ms.known[coord[0]][coord[1]] = 0
     # mark known mines on the board
@@ -303,9 +307,7 @@ while count < 43:
         for j in range(7):
             if ms.known[i][j] == 1:
                 playerboard[i][j] = 'F'
-    
     print(np.array(playerboard))
-    print(ms.known)
     count += 1
 
 
