@@ -1,3 +1,10 @@
+"""
+Generate a minesweeper gameboard, and its playerboard
+The minesweeper gameboard is a 2D list, with each element being either a mine or a number
+The number in minesweeper gameboard represents the number of mines in the adjacent 8 boxes
+The minesweeper playerboard is a 2D list, with each element being either a mine, a number, or a flag
+Either player or solver can update the playerboard
+"""
 import random
 
 class Minesweeper_gameboard():
@@ -42,20 +49,22 @@ class Minesweeper_playerboard():
         self.player_board_init()
     def player_board_init(self):
         self.player_board = [['-' for _ in range(self._cols)] for _ in range(self._rows)]
-    def count_string(self, object, count_string):
-        object_flat_1 = [a for c in object for a in c]
-        #since the gameboard is a triple list, need to flattening it twice
-        y = object_flat_1.count(count_string)
-        return y
-    def winning(self):
-        if self.count_string(self.player_board,'-') == 0\
-            or self.count_string(self.player_board,'-') == self.num_mines:
-            return True
-        return False
-    def lose(self):
-        if self.count_string(self.player_board,'X') > 0:
-            return True
-        return False
+        
+        
+#     def count_string(self, object, count_string):
+#         object_flat_1 = [a for c in object for a in c]
+#         #since the gameboard is a triple list, need to flattening it twice
+#         y = object_flat_1.count(count_string)
+#         return y
+#     def winning(self):
+#         if self.count_string(self.player_board,'-') == 0\
+#             or self.count_string(self.player_board,'-') == self.num_mines:
+#             return True
+#         return False
+#     def lose(self):
+#         if self.count_string(self.player_board,'X') > 0:
+#             return True
+#         return False
 
-board = Minesweeper_gameboard(10,20,30)
-print(board.board)
+# board = Minesweeper_gameboard(10,20,30)
+# print(board.board)

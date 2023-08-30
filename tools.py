@@ -41,17 +41,17 @@ def reduce_numbers(state, mines=None):
     state[~np.isnan(state)] -= num_neighboring_mines[~np.isnan(state)]
     return state
 
-def boolean_combine(arr_a, arr_bool):
-        combined = []
-        for row_a, row_b in zip(arr_a, arr_bool):
-            row_combined = []
-            for a, b in zip(row_a, row_b):
-                if a == 'True':
-                    row_combined.append(b)
-            else:
-                row_combined.append(a)
-                combined.append(np.asarray(row_combined))
-        return np.asarray(combined)
+# def boolean_combine(arr_a, arr_bool):
+#         combined = []
+#         for row_a, row_b in zip(arr_a, arr_bool):
+#             row_combined = []
+#             for a, b in zip(row_a, row_b):
+#                 if a == 'True':
+#                     row_combined.append(b)
+#             else:
+#                 row_combined.append(a)
+#                 combined.append(np.asarray(row_combined))
+#         return np.asarray(combined)
 
 def overlap_compare_replace(state, label, x, y, prob, result):
     '''
@@ -70,7 +70,7 @@ def overlap_compare_replace(state, label, x, y, prob, result):
                 result[x_y_overlap] = prob[x][0][x_y_overlap]
                 prob[y][0][x_y_overlap] = 0
                 prob[y][0][y_not_overlap] = (int(state[label == y + 1]) - result[x_y_overlap].sum())/ y_not_overlap.sum()
-        if (prob[x][0][x_y_overlap] < prob[y][0][x_y_overlap]).any():
+        elif (prob[x][0][x_y_overlap] < prob[y][0][x_y_overlap]).any():
             if prob[x][0][x_y_overlap].sum() == 0:
                 prob[y][0][y_not_overlap] = (int(state[label == y + 1]) - result[x_y_overlap].sum())/ y_not_overlap.sum()
                 result[y_not_overlap] = prob[y][0][y_not_overlap]
@@ -90,3 +90,15 @@ def overlap_compare_replace(state, label, x, y, prob, result):
         if y_result_notinclude.any():
             result[y_result_notinclude] = prob[y][0][y_result_notinclude]
     return prob, result
+
+def flatten_extend(matrix):
+    flat_list = []
+    for row in matrix:
+        flat_list.extend(row)
+    return flat_list
+
+def count_string(object, count_string):
+    object_flat_1 = [a for c in object for a in c]
+    #since the gameboard is a triple list, need to flattening it twice
+    y = object_flat_1.count(count_string)
+    return y

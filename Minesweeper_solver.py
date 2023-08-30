@@ -5,19 +5,18 @@ from tools import *
 from scipy.ndimage import label
 from constraint import Problem, ExactSumConstraint
 from functools import reduce
-import random
 
-gameboard = [[1, 1, 1, 0, 0, 0, 1, 'X', 1, 1, 1, 1, 0, 0, 1, 'X', 2, 'X', 1, 0],
-             [1, 'X', 2, 1, 0, 1, 2, 2, 1, 1, 'X', 1, 0, 0, 1, 1, 2, 1, 1, 0],
-             [1, 2, 'X', 1, 0, 1, 'X', 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1],
-             [0, 1, 1, 1, 0, 2, 2, 2, 1, 1, 2, 1, 1, 0, 1, 1, 1, 2, 'X', 2],
-             [1, 1, 1, 0, 0, 1, 'X', 1, 1, 'X', 3, 'X', 3, 2, 4, 'X', 2, 2, 'X', 2], 
-             [2, 'X', 2, 0, 1, 2, 2, 1, 2, 2, 4, 'X', 3, 'X', 'X', 'X', 3, 3, 2, 2], 
-             [2, 'X', 2, 0, 2, 'X', 3, 1, 2, 'X', 2, 1, 2, 2, 3, 3, 'X', 2, 'X', 1], 
-             [1, 1, 1, 0, 2, 'X', 3, 'X', 2, 1, 1, 0, 0, 1, 1, 2, 1, 2, 1, 1], 
-             [0, 0, 0, 0, 1, 1, 2, 1, 2, 1, 2, 1, 1, 2, 'X', 3, 1, 0, 0, 0], 
-             [0, 0, 0, 0, 0, 0, 0, 0, 1, 'X', 2, 'X', 1, 2, 'X', 'X', 1, 0, 0, 0]]
-playerboard = [['-' for x in range(20)] for y in range(10)]
+# gameboard = [[1, 1, 1, 0, 0, 0, 1, 'X', 1, 1, 1, 1, 0, 0, 1, 'X', 2, 'X', 1, 0],
+#              [1, 'X', 2, 1, 0, 1, 2, 2, 1, 1, 'X', 1, 0, 0, 1, 1, 2, 1, 1, 0],
+#              [1, 2, 'X', 1, 0, 1, 'X', 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1],
+#              [0, 1, 1, 1, 0, 2, 2, 2, 1, 1, 2, 1, 1, 0, 1, 1, 1, 2, 'X', 2],
+#              [1, 1, 1, 0, 0, 1, 'X', 1, 1, 'X', 3, 'X', 3, 2, 4, 'X', 2, 2, 'X', 2], 
+#              [2, 'X', 2, 0, 1, 2, 2, 1, 2, 2, 4, 'X', 3, 'X', 'X', 'X', 3, 3, 2, 2], 
+#              [2, 'X', 2, 0, 2, 'X', 3, 1, 2, 'X', 2, 1, 2, 2, 3, 3, 'X', 2, 'X', 1], 
+#              [1, 1, 1, 0, 2, 'X', 3, 'X', 2, 1, 1, 0, 0, 1, 1, 2, 1, 2, 1, 1], 
+#              [0, 0, 0, 0, 1, 1, 2, 1, 2, 1, 2, 1, 1, 2, 'X', 3, 1, 0, 0, 0], 
+#              [0, 0, 0, 0, 0, 0, 0, 0, 1, 'X', 2, 'X', 1, 2, 'X', 'X', 1, 0, 0, 0]]
+# playerboard = [['-' for x in range(20)] for y in range(10)]
 
 class Minesweeper_solver:
     def __init__(self, rows, cols, total_mines):
@@ -112,7 +111,7 @@ class Minesweeper_solver:
         result[~np.isnan(self.known)] = self.known[~np.isnan(self.known)] + 2 # 2 for safe, 3 for mine
         # update known
         self.known[result == 1] = 1
-        self.known[result == 0] = 0
+        # self.known[result == 0] = 0
         # Calculate remaining Nan's weights of mine
         squares_left = np.isnan(result).sum()
         result[np.isnan(result)] = (self.mines_left() - Mine_expected) / (squares_left)
@@ -200,7 +199,7 @@ class Minesweeper_solver:
             j_array = [solutions[j][1:] for j in j_list]
             j_array = np.sum(np.nan_to_num(j_array, copy = False), axis = 0)
             j_array = j_array/len(j_list)
-            j_array = [i for s in j_array for i in s]
+            j_array = flatten_extend(j_array)
             prob_semi.append(j_array)
             cm_index_check += 1
         # now, prob is a list of arrays. each array is a probability matrix for each cm
@@ -283,33 +282,34 @@ class Minesweeper_solver:
             i += 1
         return labeled, num_components
 
-count = 0
-while count < 180:
-    ms = Minesweeper_solver(10,20,30)
-    solve_result = ms.solve(playerboard)
-    print(solve_result)
-    min = np.nanmin(solve_result)
-    y, x = np.where(solve_result == min)
-    coord = list(zip(y, x))
-    if len(coord) > 0:
-        coord = random.choice(coord)
-    # else:
-    #     pass
-    playerboard[coord[0]][coord[1]] = gameboard[coord[0]][coord[1]]
-    if playerboard[coord[0]][coord[1]] == 'X':
-        print(solve_result)
-        print(np.array(playerboard))
-        print('you loss')
-        break
-    else:
-        ms.known[coord[0]][coord[1]] = 0
-    # mark known mines on the board
-    for i in range(10):
-        for j in range(20):
-            if ms.known[i][j] == 1:
-                playerboard[i][j] = 'F'
-    print(np.array(playerboard))
-    count += 1
+# count = 0
+# while count < 180:
+#     ms = Minesweeper_solver(10,20,30)
+#     solve_result = ms.solve(playerboard)
+#     print(solve_result)
+#     for i in range(10):
+#         for j in range(20):
+#             if ms.known[i][j] == 1:
+#                 playerboard[i][j] = 'F'
+#                 pass
+#     min = np.nanmin(solve_result)
+#     y, x = np.where(solve_result == min)
+#     coord = list(zip(y, x))
+#     if len(coord) > 0:
+#         coord = random.choice(coord)
+#     playerboard[coord[0]][coord[1]] = gameboard[coord[0]][coord[1]]
+#     if playerboard[coord[0]][coord[1]] == 'X':
+#         print(np.array(playerboard))
+#         print(solve_result)
+#         print('Mine location:{}, Loss rate: {}'.format(coord, min))
+#         print('you loss')
+#         break
+#     else:
+#         ms.known[coord[0]][coord[1]] = 0
+#     # mark known mines on the board
+
+#     print(np.array(playerboard))
+#     count += 1
 
 
         
