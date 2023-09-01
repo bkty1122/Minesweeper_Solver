@@ -2,13 +2,16 @@ import pygame, sys
 from Minesweeper_gameboard import *
 from Minesweeper_solver import *
 from tools import count_string
-from button import game_button
+from button import game_button, general_button
+
+# https://pythonprogramming.net/pygame-button-function-events/
 
 black = (0, 0, 0)
 white = (255, 255, 255)
 red = (255, 50, 50)
 lightgrey = (105, 105, 105)
-sprites = pygame.sprite.Group()
+sprites_playerboard = pygame.sprite.Group()
+sprites_selector = pygame.sprite.Group()
 
 class Minesweeper:
     def __init__(self, row, col, mines):
@@ -29,18 +32,14 @@ class Minesweeper:
         self.screen = pygame.display.set_mode((self._width, self._height))
         self.clock = pygame.time.Clock()
         self.mouse = pygame.mouse.get_pos()
-        
     def winning(self):
         count_unknown = count_string(self.playerboard, '-')
         if count_unknown == 0:
-            print('Winning')
             return True
         return False
-    
     def losing(self):
         count_mine = count_string(self.playerboard, 'X')
         if count_mine > 0:
-            print('Losing')
             return True
         return False
     
@@ -50,12 +49,26 @@ class Minesweeper:
         playerboard_titleRect = playerboard_title.get_rect()
         playerboard_titleRect.center = (self._width*0.5, self._height*0.05)
         self.screen.blit(playerboard_title, playerboard_titleRect)
+        # draw girds for the board
         for i in range(self._row):
             for j in range(self._col):
                 x = int(self._width*0.1 + i* self.box_width)
                 y = int(self._height*0.1 + j* self.box_height)
                 pygame.draw.rect(self.screen, white, pygame.Rect(x, y, self.box_width, self.box_height), 1)
-    
+    def selector(self):
+        selector_computer = 'Solve by computer'
+        selector_human = 'Solve by human'
+        global selector_computer_rect, selector_human_rect
+        selector_computer_rect = pygame.Rect(0, 0, len(selector_computer) * 10, 30)
+        selector_human_rect = pygame.Rect(0, 30, len(selector_human) * 10, 30)
+        sprites_selector.add(
+            general_button(black, lightgrey, white, selector_computer_rect, 
+                           lambda: print('computer'), selector_computer, 'clicked', True, white)
+        )
+        sprites_selector.add(
+            general_button(black, lightgrey, white, selector_human_rect,
+                           lambda: print('human'), selector_human, 'clicked', True, white)
+        )
     def draw_playerboard_computer(self):
         for i in range(self._row):
             for j in range(self._col):
@@ -83,7 +96,6 @@ class Minesweeper:
             print('Mine location:{}, Loss rate: {}'.format(coord, min))
         else:
             ms.known[coord[0]][coord[1]] = 0
-        
     def update_playerboard(self, coord, value = None, color = white):
         '''
         Eliminate the box and update the number, otherwise the board would be ugly :>
@@ -106,10 +118,34 @@ class Minesweeper:
             for j in range(self._col):
                 x = int(self._width* 0.1 + i* self.box_width)
                 y = int(self._height* 0.1 + j* self.box_height)
-                sprites.add(game_button(black, white, lightgrey, white, pygame.Rect(x, y, self.box_width, self.box_height)
+                sprites_playerboard.add(game_button(black, white, lightgrey, white, pygame.Rect(x, y, self.box_width, self.box_height)
                                         ,i, j, self.playerboard, self.gameboard, white))
-    
-    def run_game(self, solver = False):
+    def run_game_selector(self):
+        self.playerboard_title()
+        self.selector()
+        run_game = False
+        solver = False
+        while run_game == False:
+            events = pygame.event.get()
+            self.mouse = pygame.mouse.get_pos()
+            print(solver)
+            # events 要在 while loop 裏面，不然program 不會 detect 到 event...
+            for event in events:
+                if event.type == pygame.QUIT:
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN and selector_human_rect.collidepoint(self.mouse):
+                    run_game = True
+                    solver = False
+                elif event.type == pygame.MOUSEBUTTONDOWN and selector_computer_rect.collidepoint(self.mouse):
+                    run_game = True
+                    solver = True
+            sprites_selector.update(events)
+            sprites_selector.draw(self.screen)
+            pygame.display.flip()
+            self.clock.tick(30)
+        while run_game == True:
+            self.run_game(solver)
+    def run_game(self, solver):
         if solver == False:
             self.draw_playerboard_human()
         while True:
@@ -117,21 +153,18 @@ class Minesweeper:
             for event in events:
                 if event.type == pygame.QUIT:
                     sys.exit()
-            # if the mouse leave the square, remain normal color
-            self.playerboard_title()
             if solver == False:
-                sprites.update(events)
-                sprites.draw(self.screen)
+                sprites_playerboard.update(events)
+                sprites_playerboard.draw(self.screen)
             else:
                 self.draw_playerboard_computer()
                 self.solver_test()
             pygame.display.flip()
             self.clock.tick(30)
-            
-            if self.winning() == True or self.losing() == True:
-                break
-
+            if self.losing() == True or self.winning() == True:
+                sys.exit()
+                
 if __name__ == "__main__":
     ms = Minesweeper(20,20,40)
     while ms.losing() == False and ms.winning() == False:
-        ms.run_game(solver = False)
+        ms.run_game_selector()

@@ -156,6 +156,59 @@ class Button(pygame.sprite.Sprite):
                 self.callback(self)
 
 
+class general_button(pygame.sprite.Sprite):
+    def __init__(self, color, color_hover, text_color, rect, callback = print('clicked'), 
+                 text = '', text_1 = '', retained_clicked = False, outline=None):
+        super().__init__()
+        tmp_rect = pygame.Rect(0, 0, *rect.size)
+        self.retained_clicked = retained_clicked
+        self.clicked = False
+        self.org = self._create_image(color, outline, text, text_color, tmp_rect)
+        self.hov = self._create_image(color_hover, outline, text, text_color, tmp_rect)
+        if retained_clicked == True:
+            self.org_1 = self._create_image(color_hover, outline, text_1, text_color, tmp_rect)
+        # in Sprites, the image attribute holds the Surface to be displayed...
+        self.image = self.org
+        # ...and the rect holds the Rect that defines it position
+        self.rect = rect
+        self.callback = callback
+
+    def _create_image(self, color, outline, text, text_color, rect):
+        # function to create the actual surface
+        # see how we can make use of Rect's virtual attributes like 'size'
+        font = pygame.font.SysFont("Arial", 20)
+        img = pygame.Surface(rect.size)
+        if outline:
+            img.fill(outline)
+            img.fill(color, rect.inflate(-4, -4))
+        else:
+            img.fill(color)
+        # render the text once here instead of every frame
+        if text != '':
+            text_surf = font.render(text, 1, text_color)
+            text_rect = text_surf.get_rect(center=rect.center)
+            img.blit(text_surf, text_rect)
+        return img
+
+    def update(self, events):
+        pos = pygame.mouse.get_pos()
+        hit = self.rect.collidepoint(pos)
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONDOWN and hit:
+                if self.retained_clicked:
+                    self.callback
+                    self.clicked = True
+                else:
+                    self.callback
+        if self.clicked:
+            self.image = self.org_1
+        else:
+            self.image = self.hov if hit else self.org
+    
+    # @staticmethod
+    # def clicked_function():
+    #     return print('Clicked!')
+
 
 run = True
 # we store all Sprites in a Group, so we can easily
@@ -172,6 +225,9 @@ sprites.add(Button(pygame.Color('dodgerblue'),
                    pygame.Rect(300, 200, 90, 100), 
                    lambda b: print(f"Click me again!"),
                    'Another'))
+
+sprites.add(general_button(pygame.Color('red'),pygame.Color('green'), pygame.Color('white'), pygame.Rect(450, 200, 90, 100), 
+                           text= 'Another', text_1= 'Anothered', retained_clicked= True))
 
 while run:
     events = pygame.event.get()
