@@ -1,4 +1,5 @@
-import pygame, sys
+import pygame, sys, io
+from urllib.request import urlopen
 from Minesweeper_gameboard import *
 from Minesweeper_solver import *
 from tools import count_string
@@ -13,11 +14,14 @@ lightgrey = (105, 105, 105)
 sprites_playerboard = pygame.sprite.Group()
 sprites_selector = pygame.sprite.Group()
 
+icon_url = "https://upload.wikimedia.org/wikipedia/commons/2/26/Minesweeper_start_Kmine.png"
+icon = io.BytesIO(urlopen(icon_url).read())
+
 class Minesweeper:
     def __init__(self, row, col, mines):
         pygame.init()
         pygame.display.set_caption("Minesweeper")
-        self.icon = pygame.image.load("assets/icon.png")
+        self.icon = pygame.image.load(icon)
         pygame.display.set_icon(self.icon)
         self.font = pygame.font.SysFont("Arial", 20)
         self._width = 800
@@ -128,7 +132,6 @@ class Minesweeper:
         while run_game == False:
             events = pygame.event.get()
             self.mouse = pygame.mouse.get_pos()
-            print(solver)
             # events 要在 while loop 裏面，不然program 不會 detect 到 event...
             for event in events:
                 if event.type == pygame.QUIT:
@@ -165,6 +168,6 @@ class Minesweeper:
                 sys.exit()
                 
 if __name__ == "__main__":
-    ms = Minesweeper(20,20,40)
+    ms = Minesweeper(20,20,100)
     while ms.losing() == False and ms.winning() == False:
         ms.run_game_selector()
