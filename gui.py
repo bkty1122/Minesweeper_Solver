@@ -39,6 +39,7 @@ class Minesweeper:
     def winning(self):
         count_unknown = count_string(self.playerboard, '-')
         if count_unknown == 0:
+            print('You win!')
             return True
         return False
     def losing(self):
@@ -168,6 +169,6 @@ class Minesweeper:
                 sys.exit()
                 
 if __name__ == "__main__":
-    ms = Minesweeper(20,20,100)
+    ms = Minesweeper(30,16,99)
     while ms.losing() == False and ms.winning() == False:
         ms.run_game_selector()
