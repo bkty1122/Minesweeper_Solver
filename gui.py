@@ -1,5 +1,4 @@
 import pygame, sys, io
-from urllib.request import urlopen
 from Minesweeper_gameboard import *
 from Minesweeper_solver import *
 from tools import count_string
@@ -14,8 +13,7 @@ lightgrey = (105, 105, 105)
 sprites_playerboard = pygame.sprite.Group()
 sprites_selector = pygame.sprite.Group()
 
-icon_url = "https://upload.wikimedia.org/wikipedia/commons/2/26/Minesweeper_start_Kmine.png"
-icon = io.BytesIO(urlopen(icon_url).read())
+icon = 'C:\Personal Project\personal-resume-website\machine_learning_project\Minesweeper_Solver\image\icon.png'
 
 class Minesweeper:
     def __init__(self, row, col, mines):
@@ -47,13 +45,20 @@ class Minesweeper:
         if count_mine > 0:
             return True
         return False
-    
+    def status(self): 
+        # draw a status bar on the game board, stating the number of mines left
+        status = self.font.render("Mines left: {}".format(self._mines), False, white)
+        statusRect = status.get_rect()
+        statusRect.center = (self._width*0.5, self._height*0.95)
+        self.screen.blit(status, statusRect)
     def playerboard_title(self):
         # draw title of playerboard
         playerboard_title = self.font.render("Playerboard", False, white)
         playerboard_titleRect = playerboard_title.get_rect()
         playerboard_titleRect.center = (self._width*0.5, self._height*0.05)
         self.screen.blit(playerboard_title, playerboard_titleRect)
+        # draw status bar
+        self.status()
         # draw girds for the board
         for i in range(self._row):
             for j in range(self._col):
